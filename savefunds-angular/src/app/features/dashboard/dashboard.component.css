@@ -1134,6 +1134,25 @@ h2 {
   margin-top: 14px;
 }
 
+.validation-empty-state {
+  display: grid;
+  gap: 5px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #eff6ff;
+}
+
+.validation-empty-state strong {
+  color: #1e3a8a;
+}
+
+.validation-empty-state span {
+  color: #475569;
+  line-height: 1.4;
+}
+
 .btn-secondary {
   background: #0f766e;
   color: white;

@@ -651,24 +651,27 @@
                         }
                     </div>
 
-                    <div class="accountant-actions">
-                        <button class="btn btn-primary" type="button"
-                                [disabled]="selectedClientPendingValidations().length === 0"
-                                (click)="decideSelectedValidation('APPROVED')">Valider
-                        </button>
-                        <button class="btn btn-secondary" type="button"
-                                [disabled]="selectedClientPendingValidations().length === 0"
-                                (click)="decideSelectedValidation('APPROVED_WITH_CONDITION')">Valider sous condition
-                        </button>
-                        <button class="btn btn-ghost" type="button"
-                                [disabled]="selectedClientPendingValidations().length === 0"
-                                (click)="decideSelectedValidation('CORRECTION_REQUESTED')">Demander correction
-                        </button>
-                        <button class="btn btn-ghost" type="button"
-                                [disabled]="selectedClientPendingValidations().length === 0"
-                                (click)="decideSelectedValidation('POSTPONED')">Reporter
-                        </button>
-                    </div>
+                    @if (selectedClientPendingValidations().length > 0) {
+                        <div class="accountant-actions">
+                            <button class="btn btn-primary" type="button"
+                                    (click)="decideSelectedValidation('APPROVED')">Valider
+                            </button>
+                            <button class="btn btn-secondary" type="button"
+                                    (click)="decideSelectedValidation('APPROVED_WITH_CONDITION')">Valider sous condition
+                            </button>
+                            <button class="btn btn-ghost" type="button"
+                                    (click)="decideSelectedValidation('CORRECTION_REQUESTED')">Demander correction
+                            </button>
+                            <button class="btn btn-ghost" type="button"
+                                    (click)="decideSelectedValidation('POSTPONED')">Reporter
+                            </button>
+                        </div>
+                    } @else {
+                        <div class="validation-empty-state">
+                            <strong>Aucune decision comptable en attente</strong>
+                            <span>Les boutons apparaissent uniquement lorsqu'un dirigeant envoie une nouvelle demande a traiter.</span>
+                        </div>
+                    }
 
                     <div class="internal-note">
                         <small>Note interne comptable</small>
@@ -686,9 +689,11 @@
                         <small>Historique des simulations du dirigeant</small>
                         @for (log of selectedClientSimulationHistory(); track log.id) {
                             <div class="history-row">
-                                <time>{{ log.createdAt | date:'dd/MM/yyyy HH:mm' }}</time>
-                                <strong>{{ log.details }}</strong>
-                                <small>{{ log.userEmail }}</small>
+                                <div class="history-meta">
+                                    <time>{{ log.createdAt | date:'dd/MM/yyyy HH:mm' }}</time>
+                                    <small>{{ log.userEmail }}</small>
+                                </div>
+                                <strong>{{ formatAuditDetails(log.details) }}</strong>
                             </div>
                         } @empty {
                             <p class="muted">Aucune simulation de retrait ou depense n'a encore ete lancee par le dirigeant.</p>

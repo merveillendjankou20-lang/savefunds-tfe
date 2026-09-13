@@ -15,6 +15,7 @@ import be.profacile.savefunds.domain.entity.*;
 import be.profacile.savefunds.domain.enums.*;
 import be.profacile.savefunds.domain.repository.*;
 import be.profacile.savefunds.domain.service.AccountantDashboardService;
+import be.profacile.savefunds.domain.service.TrafficLightDecisionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -46,6 +47,7 @@ public class AccountantDashboardServiceImpl implements AccountantDashboardServic
     private final AccountantClientAccessRepository accountantClientAccessRepository;
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
+    private final TrafficLightDecisionService trafficLightDecisionService;
 
     @Override
     public AccountantDashboardResponse dashboard(User accountant) {
@@ -217,8 +219,10 @@ public class AccountantDashboardServiceImpl implements AccountantDashboardServic
         FinancialObligationView obligation = nextObligation(company);
 
         BigDecimal cash = latestSnapshot.map(FinancialSnapshot::getCashBalance).orElse(company.getCashBalance());
+        BigDecimal revenue = latestSnapshot.map(FinancialSnapshot::getMonthlyRevenue).orElse(company.getMonthlyRevenue());
         BigDecimal expenses = latestSnapshot.map(FinancialSnapshot::getMonthlyExpenses).orElse(company.getMonthlyExpenses());
         BigDecimal coverage = divide(cash, expenses);
+        BigDecimal revenueExpensesRatio = divide(revenue, expenses);
         Integer debtorDays = latestSnapshot.map(FinancialSnapshot::getDirectorCurrentAccountDebtorDays).orElse(debtorDaysFromCompany(company));
         int dataAge = latestSnapshot.map(this::dataAgeDays).orElse(999);
         long pendingCount = validationDecisionRepository.countByCompanyIdAndStatus(company.getId(), ValidationDecisionStatus.PENDING);
@@ -228,8 +232,8 @@ public class AccountantDashboardServiceImpl implements AccountantDashboardServic
                 .findFirst()
                 .map(validation -> decisionTypeLabel(validation.getDecisionType()) + " " + validation.getRequestedAmount() + " EUR")
                 .orElse("Aucune");
-        BigDecimal riskScore = riskScore(coverage, debtorDays, dataAge, pendingCount);
-        Decision status = statusFromRisk(riskScore);
+        BigDecimal riskScore = riskScore(coverage, debtorDays, dataAge);
+        Decision status = financialStatus(coverage, revenueExpensesRatio, debtorDays);
 
         return AccountantClientSummaryResponse.builder()
                 .companyId(company.getId())
@@ -270,10 +274,10 @@ public class AccountantDashboardServiceImpl implements AccountantDashboardServic
         return candidate;
     }
 
-    private BigDecimal riskScore(BigDecimal coverage, Integer debtorDays, int dataAge, long pendingCount) {
+    private BigDecimal riskScore(BigDecimal coverage, Integer debtorDays, int dataAge) {
         BigDecimal score = ZERO;
         if (coverage.compareTo(ONE) < 0) {
-            score = score.add(BigDecimal.valueOf(3.5));
+            score = score.add(BigDecimal.valueOf(7));
         } else if (coverage.compareTo(TWO) < 0) {
             score = score.add(BigDecimal.valueOf(2));
         } else if (coverage.compareTo(THREE) < 0) {
@@ -293,21 +297,19 @@ public class AccountantDashboardServiceImpl implements AccountantDashboardServic
             score = score.add(BigDecimal.valueOf(0.75));
         }
 
-        if (pendingCount > 0) {
-            score = score.add(BigDecimal.valueOf(Math.min(2, pendingCount)));
-        }
-
         return score.min(TEN).setScale(1, RoundingMode.HALF_UP);
     }
 
-    private Decision statusFromRisk(BigDecimal riskScore) {
-        if (riskScore.compareTo(BigDecimal.valueOf(7)) >= 0) {
-            return Decision.ROUGE;
-        }
-        if (riskScore.compareTo(BigDecimal.valueOf(4)) >= 0) {
-            return Decision.ORANGE;
-        }
-        return Decision.VERT;
+    private Decision financialStatus(BigDecimal coverage, BigDecimal revenueExpensesRatio, Integer debtorDays) {
+        Decision cashDecision = trafficLightDecisionService.calculateCashDecision(coverage);
+        Decision ratioDecision = trafficLightDecisionService.calculateRevenueExpensesRatioDecision(revenueExpensesRatio);
+        Decision currentAccountDecision = trafficLightDecisionService.calculateDirectorCurrentAccountDecision(debtorDays == null ? 0 : debtorDays);
+        return trafficLightDecisionService.calculateGlobalDecision(
+                cashDecision,
+                ratioDecision,
+                currentAccountDecision,
+                Decision.VERT
+        );
     }
 
     private String dossierStatus(Decision status, int dataAge, long pendingCount) {

@@ -183,7 +183,8 @@ public class FinancialIndicatorServiceImpl implements FinancialIndicatorService 
             return false;
         }
 
-        // Vérifier que toutes les données essentielles sont présentes
+        // Le compte courant dirigeant est un indicateur utile, mais il n'est pas
+        // toujours present dans les sources publiques ou les bilans importes.
         boolean chiffreAffairesOK = company.getMonthlyRevenue() != null
                 && company.getMonthlyRevenue().compareTo(BigDecimal.ZERO) > 0;
 
@@ -192,13 +193,11 @@ public class FinancialIndicatorServiceImpl implements FinancialIndicatorService 
 
         boolean cashBalanceOK = company.getCashBalance() != null;
 
-        boolean compteCourantOK = company.getDirectorCurrentAccountBalance() != null;
-
-        boolean complete = chiffreAffairesOK && chargesOK && cashBalanceOK && compteCourantOK;
+        boolean complete = chiffreAffairesOK && chargesOK && cashBalanceOK;
 
         if (!complete) {
-            log.warn("Données incomplètes pour company {} - CA:{}, Charges:{}, Tréso:{}, CC:{}",
-                    company.getId(), chiffreAffairesOK, chargesOK, cashBalanceOK, compteCourantOK);
+            log.warn("Données incomplètes pour company {} - CA:{}, Charges:{}, Tréso:{}",
+                    company.getId(), chiffreAffairesOK, chargesOK, cashBalanceOK);
         }
 
         return complete;

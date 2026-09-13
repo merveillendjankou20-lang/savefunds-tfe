@@ -169,7 +169,7 @@ public class WithdrawalAnalysisServiceImpl implements WithdrawalAnalysisService 
         if (!financialIndicatorService.hasCompleteFinancialData(company)) {
             throw new IllegalStateException(
                     "Données financières incomplètes pour l'company. " +
-                            "Veuillez renseigner : CA, charges, trésorerie, compte courant.");
+                            "Veuillez renseigner au minimum : CA, charges et trésorerie.");
         }
 
         // ===== 3. CALCUL DES INDICATEURS =====

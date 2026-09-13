@@ -366,7 +366,10 @@ public class AccountantDashboardServiceImpl implements AccountantDashboardServic
     }
 
     private int dataAgeDays(FinancialSnapshot snapshot) {
-        return Math.toIntExact(ChronoUnit.DAYS.between(snapshot.getCreatedAt().toLocalDate(), LocalDate.now()));
+        LocalDate referenceDate = snapshot.getSnapshotDate() != null
+                ? snapshot.getSnapshotDate()
+                : snapshot.getCreatedAt().toLocalDate();
+        return Math.toIntExact(ChronoUnit.DAYS.between(referenceDate, LocalDate.now()));
     }
 
     private List<String> activity(FinancialSnapshot snapshot, AccountantNote note, long pendingCount) {

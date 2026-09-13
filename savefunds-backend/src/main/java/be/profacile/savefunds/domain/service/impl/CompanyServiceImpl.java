@@ -17,7 +17,8 @@ import java.util.Optional;
 /**
  * Implémentation du service de gestion des companies
  * <p>
- * Règle métier : Un utilisateur ne peut avoir qu'une seule company
+ * Règle métier : un utilisateur peut gérer plusieurs companies,
+ * mais une même company ne peut pas être rattachée deux fois au même utilisateur.
  */
 @Service
 @Transactional
@@ -81,7 +82,7 @@ public class CompanyServiceImpl implements CompanyService {
             throw new IllegalArgumentException("Le numéro d'company est obligatoire");
         }
 
-        // Validation métier : un userId ne peut avoir qu'une seule company
+        // Validation métier : éviter le double rattachement de la même company au même utilisateur
         if (companyRepository.existsByUserIdAndEnterpriseNumber(
                 company.getUserId(),
                 company.getEnterpriseNumber()

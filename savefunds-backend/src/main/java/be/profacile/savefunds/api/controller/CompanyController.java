@@ -31,7 +31,8 @@ import java.util.Optional;
 /**
  * REST Controller pour la gestion des companies (PME/SRL belges).
  *
- * Règle métier : 1 userId = 1 company maximum
+ * Règle métier : un dirigeant peut gérer plusieurs companies.
+ * Une même company ne peut pas être rattachée deux fois au même dirigeant.
  *
  * Endpoints:
  * - POST /api/v1/companies : Créer une company
@@ -54,11 +55,10 @@ public class CompanyController {
 
     /**
      * Créer une nouvelle company.
-     * Règle : 1 userId = 1 company max
      */
     @PostMapping
     @Operation(summary = "Créer une company",
-            description = "Enregistre une nouvelle company pour un utilisateur (1 company max par user)")
+            description = "Enregistre une nouvelle company pour l'utilisateur connecte")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Company créée avec succès"),
             @ApiResponse(responseCode = "400", description = "Données invalides ou utilisateur a déjà une company"),
@@ -171,12 +171,13 @@ public class CompanyController {
     }
 
     /**
-     * Récupérer l'company d'un utilisateur.
-     * Utile car 1 user = 1 company max
+     * Récupérer la dernière company d'un utilisateur.
+     * Endpoint conserve pour compatibilite avec les premiers ecrans du MVP.
+     * Pour le portefeuille complet, utiliser GET /api/v1/companies/me.
      */
     @GetMapping("/user/{userId}")
-    @Operation(summary = "Récupérer l'company d'un utilisateur",
-            description = "Récupère l'company associée à un utilisateur (1 max par user)")
+    @Operation(summary = "Récupérer la dernière company d'un utilisateur",
+            description = "Récupère la dernière company rattachée à un utilisateur. Pour toutes les companies, utiliser /me.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Company récupérée avec succès"),
             @ApiResponse(responseCode = "404", description = "Aucune company trouvée pour cet utilisateur")

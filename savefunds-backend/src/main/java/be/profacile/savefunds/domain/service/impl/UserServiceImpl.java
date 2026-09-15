@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.List;
 import java.util.Optional;
@@ -131,10 +132,26 @@ public class UserServiceImpl implements UserService {
         if (!userRepository.existsById(id)) {
             throw new ResourceNotFoundException("User", "id", id);
         }
+        try {
+            userRepository.deleteById(id);
 
-        userRepository.deleteById(id);
+            // Force l'exécution SQL immédiatement afin de détecter
+            // les contraintes de clés étrangères ici.
+            userRepository.flush();
 
-        log.info("Utilisateur supprimé : ID {}", id);
+            log.info("Utilisateur supprimé : ID {}", id);
+
+        } catch (DataIntegrityViolationException ex) {
+
+            log.warn(
+                    "Suppression impossible pour l'utilisateur ID {} : données rattachées",
+                    id
+            );
+
+            throw new IllegalStateException(
+                    "Cet utilisateur ne peut pas être supprimé car il est lié à des données existantes."
+            );
+        }
     }
 
     @Override

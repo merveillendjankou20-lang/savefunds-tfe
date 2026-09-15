@@ -31,9 +31,14 @@ public class VigilanceEngineImpl implements VigilanceEngine {
         BigDecimal maxRecommendedAmount = cashBefore.subtract(expenses.multiply(THREE)).max(BigDecimal.ZERO);
 
         List<VigilanceIndicatorResponse> indicators = new ArrayList<>();
+
         indicators.add(cashCoverageIndicator(expenses, cashAfter));
         indicators.add(revenueRatioIndicator(revenue, expenses));
-        indicators.add(currentAccountIndicator(snapshot));
+
+        if (snapshot.getDirectorCurrentAccountBalance() != null) {
+            indicators.add(currentAccountIndicator(snapshot));
+        }
+
         indicators.add(requestedAmountIndicator(requestedAmount, maxRecommendedAmount));
 
         Decision globalDecision = indicators.stream()
@@ -85,17 +90,36 @@ public class VigilanceEngineImpl implements VigilanceEngine {
     }
 
     private VigilanceIndicatorResponse currentAccountIndicator(FinancialSnapshot snapshot) {
-        BigDecimal currentAccount = snapshot.getDirectorCurrentAccountBalance() == null ? BigDecimal.ZERO : snapshot.getDirectorCurrentAccountBalance();
-        int debtorDays = snapshot.getDirectorCurrentAccountDebtorDays() == null ? 0 : snapshot.getDirectorCurrentAccountDebtorDays();
-        Decision decision = currentAccount.signum() >= 0 ? Decision.VERT :
-                debtorDays <= 30 ? Decision.ORANGE : Decision.ROUGE;
+
+        BigDecimal currentAccount =
+                snapshot.getDirectorCurrentAccountBalance();
+
+        Integer debtorDays =
+                snapshot.getDirectorCurrentAccountDebtorDays();
+
+        Decision decision;
+
+        if (currentAccount.signum() >= 0) {
+            decision = Decision.VERT;
+        } else if (debtorDays == null) {
+            decision = Decision.ORANGE;
+        } else if (debtorDays <= 30) {
+            decision = Decision.ORANGE;
+        } else {
+            decision = Decision.ROUGE;
+        }
+
         return VigilanceIndicatorResponse.builder()
                 .code("DEBTOR_CURRENT_ACCOUNT")
                 .label("Compte courant dirigeant")
-                .value(BigDecimal.valueOf(debtorDays))
+                .value(debtorDays == null ? null : BigDecimal.valueOf(debtorDays))
                 .decision(decision)
                 .details("Duree en jours du compte courant debiteur")
-                .recommendation(decision == Decision.ROUGE ? "Faire valider la situation par le comptable." : "Eviter de prolonger une position debitrice.")
+                .recommendation(
+                        decision == Decision.ROUGE
+                                ? "Faire valider la situation par le comptable."
+                                : "Eviter de prolonger une position debitrice."
+                )
                 .build();
     }
 

@@ -673,10 +673,7 @@
                         </div>
                     }
 
-                    <div class="internal-note">
-                        <small>Note interne comptable</small>
-                        <p>{{ selectedClient()?.internalNote }}</p>
-                    </div>
+
 
                     <div class="activity-feed">
                         <small>Activite recente</small>
@@ -731,41 +728,275 @@
                     </div>
                 </article>
             </section>
-        } @else if (isAccountant() && currentView() === 'AUDIT') {
-            <section class="panel audit-panel">
-                <div class="panel-head">
-                    <div>
-                        <p class="eyebrow">Flux comptable</p>
-                        <h2>Alertes et validations recentes</h2>
-                    </div>
+        } @else if (currentView() === 'AUDIT') {
+
+        <section class="panel audit-panel">
+
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Traçabilité</p>
+                    <h2>Journal d'audit</h2>
+                    <p class="muted">
+                        Historique des opérations sensibles réalisées
+                        sur les entreprises de votre portefeuille.
+                    </p>
                 </div>
-                <div class="bce-import-box">
-                    <div>
-                        <strong>Base BCE Open Data</strong>
-                        <span>Importer un extrait CSV gratuit pour alimenter la recherche d'entreprise SaveFunds.</span>
-                    </div>
-                    <label class="btn btn-primary">
-                        Importer CSV BCE
-                        <input type="file" accept=".csv,text/csv" (change)="onBceOpenDataSelected($event)">
-                    </label>
-                    @if (bceImportMessage()) {
-                        <p>{{ bceImportMessage() }}</p>
-                    }
+            </div>
+
+            <div class="audit-filters">
+
+                <div class="field">
+                    <label>Entreprise</label>
+
+                    <select
+                            [ngModel]="auditCompanyFilter()"
+                            (ngModelChange)="auditCompanyFilter.set($event)">
+
+                        <option value="ALL">
+                            Toutes les entreprises
+                        </option>
+
+                        @for (client of accountantClients(); track client.companyId) {
+                        <option [value]="client.companyId">
+                            {{ client.name }}
+                        </option>
+                        }
+
+                    </select>
                 </div>
-                <div class="accountant-alerts">
-                    @for (client of filteredAccountantClients().slice(0, 6); track client.companyNumber) {
-                        <div>
-                            <strong>{{ displayText(client.name) }}</strong>
-                            <span>{{ client.status }} - {{ client.pendingValidation }}</span>
-                        </div>
-                    } @empty {
-                        <div>
-                            <strong>Aucun flux comptable</strong>
-                            <span>Les alertes apparaitront apres acceptation d'un mandat client.</span>
-                        </div>
-                    }
+
+                <div class="field">
+
+                    <label>Action</label>
+
+                    <select
+                            [ngModel]="auditActionFilter()"
+                            (ngModelChange)="auditActionFilter.set($event)">
+
+                        <option value="ALL">
+                            Toutes les actions
+                        </option>
+
+                        <option value="FINANCIAL_SNAPSHOT_CREATED">
+                            Données financières créées
+                        </option>
+
+                        <option value="FINANCIAL_SNAPSHOT_IMPORTED">
+                            Import financier
+                        </option>
+
+                        <option value="FINANCIAL_DECISION_SIMULATED">
+                            Simulation financière
+                        </option>
+
+                        <option value="AUDIT_LOG_VIEWED">
+                            Consultation audit
+                        </option>
+
+                    </select>
+
                 </div>
-            </section>
+
+                <div class="field">
+
+                    <label>Résultat</label>
+
+                    <select
+                            [ngModel]="auditOutcomeFilter()"
+                            (ngModelChange)="auditOutcomeFilter.set($event)">
+
+                        <option value="ALL">
+                            Tous les résultats
+                        </option>
+
+                        <option value="SUCCESS">
+                            Succès
+                        </option>
+
+                        <option value="FAILED">
+                            Échec
+                        </option>
+
+                        <option value="DENIED">
+                            Accès refusé
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <div class="field">
+
+                    <label>Recherche</label>
+
+                    <input
+                            type="text"
+                            [ngModel]="auditSearch()"
+                            (ngModelChange)="auditSearch.set($event)"
+                            placeholder="Entreprise, utilisateur...">
+
+                </div>
+
+            </div>
+
+
+            <div class="audit-table">
+
+                <div class="audit-row audit-head">
+
+                    <span>Date / heure</span>
+                    <span>Entreprise</span>
+                    <span>Utilisateur</span>
+                    <span>Action</span>
+                    <span>Résultat</span>
+                    <span></span>
+
+                </div>
+
+
+                @for (log of filteredAccountantAuditLogs(); track log.id) {
+
+                <div class="audit-row">
+
+                <span>
+                    {{ log.createdAt | date:'dd/MM/yyyy HH:mm' }}
+                </span>
+
+                    <strong>
+                        {{ log.companyName }}
+                    </strong>
+
+                    <span>
+                    {{ log.userEmail }}
+                </span>
+
+                    <span>
+                    {{ auditActionLabel(log.action) }}
+                </span>
+
+                    <span
+                            class="audit-outcome"
+                            [class.success]="log.outcome === 'SUCCESS'"
+                            [class.failed]="log.outcome === 'FAILED'"
+                            [class.denied]="log.outcome === 'DENIED'">
+
+                    {{ auditOutcomeLabel(log.outcome) }}
+
+                </span>
+
+                    <button
+                            type="button"
+                            class="btn btn-ghost"
+                            (click)="openAuditDetails(log)">
+
+                        Détails
+
+                    </button>
+
+                </div>
+
+                } @empty {
+
+                <div class="audit-empty">
+
+                    <strong>Aucune opération trouvée</strong>
+
+                    <span>
+                    Les opérations auditées apparaîtront ici.
+                </span>
+
+                </div>
+
+                }
+
+            </div>
+
+        </section>
+
+
+        @if (selectedAuditLog(); as log) {
+
+        <section class="panel audit-detail-panel">
+
+            <div class="panel-head">
+
+                <div>
+                    <p class="eyebrow">Opération #{{ log.id }}</p>
+                    <h2>Détail de l'opération</h2>
+                </div>
+
+                <button
+                        class="btn btn-ghost"
+                        type="button"
+                        (click)="closeAuditDetails()">
+
+                    Fermer
+
+                </button>
+
+            </div>
+
+
+            <div class="audit-detail-grid">
+
+                <div>
+                    <small>Date et heure</small>
+                    <strong>
+                        {{ log.createdAt | date:'dd/MM/yyyy HH:mm:ss' }}
+                    </strong>
+                </div>
+
+                <div>
+                    <small>Entreprise</small>
+                    <strong>{{ log.companyName }}</strong>
+                </div>
+
+                <div>
+                    <small>Utilisateur</small>
+                    <strong>{{ log.userEmail }}</strong>
+                </div>
+
+                <div>
+                    <small>Action</small>
+                    <strong>{{ auditActionLabel(log.action) }}</strong>
+                </div>
+
+                <div>
+                    <small>Résultat</small>
+                    <strong>{{ auditOutcomeLabel(log.outcome) }}</strong>
+                </div>
+
+                <div>
+                    <small>Ressource</small>
+                    <strong>
+                        {{ auditResourceLabel(log.resourceType) }}
+                        @if (log.resourceId) {
+                        #{{ log.resourceId }}
+                        }
+                    </strong>
+                </div>
+
+            </div>
+
+
+            @if (log.details) {
+
+            <div class="audit-details-text">
+
+                <small>Détails</small>
+
+                <p>{{ log.details }}</p>
+
+            </div>
+
+            }
+
+        </section>
+
+        }
+
+
+
         } @else if (!enterprise()) {
             <section class="setup-panel">
                 <div>
@@ -839,8 +1070,21 @@
                 </article>
                 <article class="metric-card">
                     <small>{{ t('currentAccount') }}</small>
-                    <strong>{{ money(displayedSnapshot()?.directorCurrentAccountBalance || enterprise()?.directorCurrentAccountBalance) }}</strong>
-                    <span>{{ displayedSnapshot()?.directorCurrentAccountDebtorDays || 0 }} {{ t('debtorDays') }}</span>
+
+                    @if (displayedSnapshot()?.directorCurrentAccountBalance != null) {
+                    <strong>{{ money(displayedSnapshot()?.directorCurrentAccountBalance) }}</strong>
+
+                    <span>
+            @if (displayedSnapshot()?.directorCurrentAccountDebtorDays != null) {
+                {{ displayedSnapshot()?.directorCurrentAccountDebtorDays }} {{ t('debtorDays') }}
+            } @else {
+                Durée non disponible
+            }
+        </span>
+                    } @else {
+                    <strong>Non disponible</strong>
+                    <span>Donnée non disponible</span>
+                    }
                 </article>
                 <article class="metric-card">
                     <small>{{ t('activeSources') }}</small>
@@ -912,8 +1156,20 @@
                                 </div>
                                 <div class="indicator-source-row">
                                     <strong>{{ t('directorCurrentAccount') }}</strong>
-                                    <span>{{ displayedSnapshot()?.directorCurrentAccountDebtorDays || 0 }}jour(s)</span>
-                                    <small [class.warning-text]="sourceIndicators().currentAccount.warning">{{ sourceIndicators().currentAccount.label }} {{ sourceIndicators().currentAccount.date }}</small>
+
+                                    <span>
+        @if (displayedSnapshot()?.directorCurrentAccountDebtorDays != null) {
+            {{ displayedSnapshot()?.directorCurrentAccountDebtorDays }} jour(s)
+        } @else {
+            Non disponible
+        }
+    </span>
+
+                                    <small [class.warning-text]="sourceIndicators().currentAccount.warning">
+                                        {{ sourceIndicators().currentAccount.label }}
+                                        {{ sourceIndicators().currentAccount.date }}
+                                    </small>
+
                                     <span>{{ sourceIndicators().currentAccount.confidence }}%</span>
                                 </div>
                             </div>
@@ -1126,17 +1382,35 @@
                                 La decision reste conditionnee par la fraicheur des donnees, les echeances fiscales et l'avis comptable.
                             </p>
 
-                            <div class="indicator-list">
-                                @for (indicator of result()?.indicators || []; track indicator.code) {
-                                    <div class="indicator-row">
-                                        <span class="status-pill decision-{{ indicator.decision }}">{{ indicator.decision }}</span>
-                                        <div>
-                                            <strong>{{ indicator.label }}</strong>
-                                            <small>{{ indicator.explanation }}</small>
-                                        </div>
-                                    </div>
-                                }
+                        <div class="indicator-list">
+
+                            @for (indicator of result()?.indicators || []; track indicator.code) {
+                            <div class="indicator-row">
+            <span class="status-pill decision-{{ indicator.decision }}">
+                {{ indicator.decision }}
+            </span>
+
+                                <div>
+                                    <strong>{{ indicator.label }}</strong>
+                                    <small>{{ indicator.explanation }}</small>
+                                </div>
                             </div>
+                            }
+
+                            @if (displayedSnapshot()?.directorCurrentAccountBalance == null) {
+                            <div class="indicator-row">
+            <span class="status-pill">
+                NON ÉVALUÉ
+            </span>
+
+                                <div>
+                                    <strong>Compte courant dirigeant</strong>
+                                    <small>Donnée non disponible</small>
+                                </div>
+                            </div>
+                            }
+
+                        </div>
 
                             <div class="advice-box">
                                 <div class="field">

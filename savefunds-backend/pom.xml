@@ -17,8 +17,8 @@
 
     <properties>
         <!-- Java -->
-        <java.version>25</java.version>
-        <maven.compiler.release>25</maven.compiler.release>
+        <java.version>21</java.version>
+        <maven.compiler.release>21</maven.compiler.release>
 
         <!-- Lombok (override Spring Boot BOM — support JDK 25) -->
         <lombok.version>1.18.38</lombok.version>

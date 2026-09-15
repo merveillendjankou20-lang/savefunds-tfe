@@ -27,7 +27,7 @@ public class CreateFinancialSituationRequest {
     @NotNull(message = "La trésorerie est obligatoire")
     private BigDecimal cashBalance;
 
-    @NotNull(message = "Le solde du compte courant est obligatoire")
+
     private BigDecimal directorCurrentAccountBalance;
 
     @PositiveOrZero(message = "La durée du compte courant débiteur doit être positive ou nulle")

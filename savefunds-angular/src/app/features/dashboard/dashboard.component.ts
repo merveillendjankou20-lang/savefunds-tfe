@@ -64,6 +64,42 @@ export class DashboardComponent implements OnInit {
   error = signal('');
   selectedClient = signal<AccountantClient | null>(null);
   selectedClientAuditLogs = signal<AuditLog[]>([]);
+  accountantAuditLogs = signal<(AuditLog & { companyName: string })[]>([]);
+
+  auditCompanyFilter = signal('ALL');
+  auditActionFilter = signal('ALL');
+  auditOutcomeFilter = signal('ALL');
+  auditSearch = signal('');
+  selectedAuditLog = signal<(AuditLog & { companyName: string }) | null>(null);
+  filteredAccountantAuditLogs = computed(() => {
+    const company = this.auditCompanyFilter();
+    const action = this.auditActionFilter();
+    const outcome = this.auditOutcomeFilter();
+    const search = this.auditSearch().trim().toLowerCase();
+
+    return this.accountantAuditLogs().filter((log) => {
+
+      const matchesCompany =
+        company === 'ALL' || String(log.companyId) === company;
+
+      const matchesAction =
+        action === 'ALL' || log.action === action;
+
+      const matchesOutcome =
+        outcome === 'ALL' || log.outcome === outcome;
+
+      const matchesSearch =
+        !search ||
+        log.companyName.toLowerCase().includes(search) ||
+        log.userEmail.toLowerCase().includes(search) ||
+        (log.details || '').toLowerCase().includes(search);
+
+      return matchesCompany
+        && matchesAction
+        && matchesOutcome
+        && matchesSearch;
+    });
+  });
   selectedClientValidations = signal<ValidationDecision[]>([]);
   directorValidationRequests = signal<ValidationDecision[]>([]);
   clientAccesses = signal<AccountantClientAccess[]>([]);
@@ -245,17 +281,33 @@ export class DashboardComponent implements OnInit {
 
   enterpriseDecision = computed(() => {
     const current = this.displayedSnapshot();
+
     if (!current) {
       return 'ORANGE';
     }
-    const coverage = current.monthlyExpenses ? current.cashBalance / current.monthlyExpenses : 0;
-    const ccDays = current.directorCurrentAccountDebtorDays ?? 0;
-    if (coverage < 1 || ccDays > 30) {
+
+    const coverage = current.monthlyExpenses
+      ? current.cashBalance / current.monthlyExpenses
+      : 0;
+
+    const ccDays = current.directorCurrentAccountDebtorDays;
+
+    if (coverage < 1) {
       return 'ROUGE';
     }
-    if (coverage < 3 || ccDays > 0) {
+
+    if (ccDays != null && ccDays > 30) {
+      return 'ROUGE';
+    }
+
+    if (coverage < 3) {
       return 'ORANGE';
     }
+
+    if (ccDays != null && ccDays > 0) {
+      return 'ORANGE';
+    }
+
     return 'VERT';
   });
 
@@ -326,8 +378,14 @@ export class DashboardComponent implements OnInit {
 
   setView(view: DashboardView): void {
     this.currentView.set(view);
+    this.error.set('');
+
     if (view === 'ADMIN') {
       this.loadAdminUsers();
+    }
+
+    if (view === 'AUDIT' && this.isAccountant()) {
+      this.loadAccountantAuditPortfolio();
     }
   }
 
@@ -1068,16 +1126,149 @@ export class DashboardComponent implements OnInit {
     if (!confirmed) {
       return;
     }
+    this.error.set('');
     this.api.deleteUser(user.id).subscribe({
-      next: () => this.adminUsers.update((users) => users.filter((item) => item.id !== user.id)),
-      error: () => this.fail('Suppression impossible pour cet utilisateur.')
+      next: () => {
+        this.adminUsers.update(
+          (users) => users.filter((item) => item.id !== user.id)
+        );
+      },
+
+      error: (error) => {
+        const message =
+          error?.error?.message
+          || 'Suppression impossible pour cet utilisateur.';
+
+        this.fail(message);
+      }
     });
   }
 
   private replaceAdminUser(updated: User): void {
     this.adminUsers.update((users) => users.map((user) => user.id === updated.id ? updated : user));
   }
+loadAccountantAuditPortfolio(): void {
+  const clients = this.accountantClients();
 
+  if (!clients.length) {
+    this.accountantAuditLogs.set([]);
+    return;
+  }
+
+  const allLogs: (AuditLog & { companyName: string })[] = [];
+  let completed = 0;
+
+  clients.forEach((client) => {
+
+    this.api.getAccountantCompanyAuditLogs(client.companyId).subscribe({
+
+      next: (logs) => {
+
+        allLogs.push(
+          ...logs.map((log) => ({
+            ...log,
+            companyName: client.name
+          }))
+        );
+
+        completed++;
+
+        if (completed === clients.length) {
+          this.accountantAuditLogs.set(
+            allLogs.sort(
+              (a, b) =>
+                new Date(b.createdAt).getTime()
+                - new Date(a.createdAt).getTime()
+            )
+          );
+        }
+      },
+
+      error: () => {
+        completed++;
+
+        if (completed === clients.length) {
+          this.accountantAuditLogs.set(
+            allLogs.sort(
+              (a, b) =>
+                new Date(b.createdAt).getTime()
+                - new Date(a.createdAt).getTime()
+            )
+          );
+        }
+      }
+    });
+  });
+}
+auditActionLabel(action: string): string {
+  switch (action) {
+    case 'FINANCIAL_SNAPSHOT_CREATED':
+      return 'Données financières créées';
+
+    case 'FINANCIAL_SNAPSHOT_IMPORTED':
+      return 'Import financier';
+
+    case 'FINANCIAL_DECISION_SIMULATED':
+      return 'Simulation financière';
+
+    case 'ACCOUNTANT_NOTE_CREATED':
+      return 'Note comptable ajoutée';
+
+    case 'VALIDATION_REQUEST_CREATED':
+      return 'Demande de validation';
+
+    case 'VALIDATION_DECISION_RECORDED':
+      return 'Décision comptable';
+
+    case 'AUDIT_LOG_VIEWED':
+      return 'Consultation de l’audit';
+
+    default:
+      return action;
+  }
+}
+
+auditOutcomeLabel(outcome: string): string {
+  switch (outcome) {
+    case 'SUCCESS':
+      return 'Succès';
+
+    case 'FAILED':
+      return 'Échec';
+
+    case 'DENIED':
+      return 'Accès refusé';
+
+    default:
+      return outcome;
+  }
+}
+auditResourceLabel(resourceType: string | null | undefined): string {
+  switch (resourceType) {
+    case 'FINANCIAL_SNAPSHOT':
+      return 'Données financières';
+
+    case 'VALIDATION_DECISION':
+      return 'Validation comptable';
+
+    case 'ACCOUNTANT_NOTE':
+      return 'Note comptable';
+
+    case 'COMPANY':
+      return 'Entreprise';
+
+    default:
+      return resourceType || 'Non renseignée';
+  }
+}
+
+openAuditDetails(log: AuditLog & { companyName: string }): void {
+  this.selectedAuditLog.set(log);
+}
+
+closeAuditDetails(): void {
+  this.selectedAuditLog.set(null);
+}
   private loadAccountantDashboard(): void {
     this.api.getAccountantDashboard().subscribe({
       next: (dashboard) => {
@@ -1356,7 +1547,7 @@ export class DashboardComponent implements OnInit {
         };
       }
     }
-    return { available: false, label: 'Aucune donnÃ©e disponible', date: '', confidence: 0, warning: false };
+    return { available: false, label: 'Aucune donnée disponible', date: '', confidence: 0, warning: false };
   }
 
   private profilePhotoKey(): string {

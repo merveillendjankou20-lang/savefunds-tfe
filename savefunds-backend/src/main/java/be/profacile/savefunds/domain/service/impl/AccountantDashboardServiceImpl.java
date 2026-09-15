@@ -16,6 +16,7 @@ import be.profacile.savefunds.domain.enums.*;
 import be.profacile.savefunds.domain.repository.*;
 import be.profacile.savefunds.domain.service.AccountantDashboardService;
 import be.profacile.savefunds.domain.service.TrafficLightDecisionService;
+import be.profacile.savefunds.domain.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -48,6 +49,7 @@ public class AccountantDashboardServiceImpl implements AccountantDashboardServic
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
     private final TrafficLightDecisionService trafficLightDecisionService;
+    private final AuditLogService auditLogService;
 
     @Override
     public AccountantDashboardResponse dashboard(User accountant) {
@@ -150,7 +152,19 @@ public class AccountantDashboardServiceImpl implements AccountantDashboardServic
         note.setAccountantId(accountant.getId());
         note.setContent(request.getContent());
 
-        return toNoteResponse(accountantNoteRepository.save(note));
+        AccountantNote savedNote = accountantNoteRepository.save(note);
+
+        auditLogService.record(
+                accountant,
+                company.getId(),
+                AuditAction.ACCOUNTANT_NOTE_CREATED,
+                AuditOutcome.SUCCESS,
+                "ACCOUNTANT_NOTE",
+                savedNote.getId(),
+                "Note comptable ajoutée au dossier"
+        );
+
+        return toNoteResponse(savedNote);
     }
 
     @Override
@@ -190,7 +204,23 @@ public class AccountantDashboardServiceImpl implements AccountantDashboardServic
         validation.setComment(request.getComment());
         validation.setStatus(ValidationDecisionStatus.PENDING);
 
-        return toValidationResponse(validationDecisionRepository.save(validation));
+        ValidationDecision savedValidation =
+                validationDecisionRepository.save(validation);
+
+        auditLogService.record(
+                requester,
+                company.getId(),
+                AuditAction.VALIDATION_REQUEST_CREATED,
+                AuditOutcome.SUCCESS,
+                "VALIDATION_DECISION",
+                savedValidation.getId(),
+                "Demande de validation créée : "
+                        + savedValidation.getDecisionType()
+                        + " montant="
+                        + savedValidation.getRequestedAmount()
+        );
+
+        return toValidationResponse(savedValidation);
     }
 
     @Override
@@ -209,7 +239,21 @@ public class AccountantDashboardServiceImpl implements AccountantDashboardServic
         validation.setDecidedByAccountantId(accountant.getId());
         validation.setDecidedAt(LocalDateTime.now());
 
-        return toValidationResponse(validationDecisionRepository.save(validation));
+        ValidationDecision savedValidation =
+                validationDecisionRepository.save(validation);
+
+        auditLogService.record(
+                accountant,
+                validation.getCompany().getId(),
+                AuditAction.VALIDATION_DECISION_RECORDED,
+                AuditOutcome.SUCCESS,
+                "VALIDATION_DECISION",
+                savedValidation.getId(),
+                "Décision comptable : "
+                        + savedValidation.getStatus()
+        );
+
+        return toValidationResponse(savedValidation);
     }
 
     private AccountantClientSummaryResponse toClientSummary(Company company) {
@@ -283,12 +327,12 @@ public class AccountantDashboardServiceImpl implements AccountantDashboardServic
         } else if (coverage.compareTo(THREE) < 0) {
             score = score.add(ONE);
         }
-
-        int safeDebtorDays = debtorDays == null ? 0 : debtorDays;
-        if (safeDebtorDays > 30) {
-            score = score.add(BigDecimal.valueOf(3));
-        } else if (safeDebtorDays >= 21) {
-            score = score.add(BigDecimal.valueOf(1.5));
+        if (debtorDays != null) {
+            if (debtorDays > 30) {
+                score = score.add(BigDecimal.valueOf(3));
+            } else if (debtorDays >= 21) {
+                score = score.add(BigDecimal.valueOf(1.5));
+            }
         }
 
         if (dataAge > 30) {
@@ -300,10 +344,35 @@ public class AccountantDashboardServiceImpl implements AccountantDashboardServic
         return score.min(TEN).setScale(1, RoundingMode.HALF_UP);
     }
 
-    private Decision financialStatus(BigDecimal coverage, BigDecimal revenueExpensesRatio, Integer debtorDays) {
-        Decision cashDecision = trafficLightDecisionService.calculateCashDecision(coverage);
-        Decision ratioDecision = trafficLightDecisionService.calculateRevenueExpensesRatioDecision(revenueExpensesRatio);
-        Decision currentAccountDecision = trafficLightDecisionService.calculateDirectorCurrentAccountDecision(debtorDays == null ? 0 : debtorDays);
+    private Decision financialStatus(
+            BigDecimal coverage,
+            BigDecimal revenueExpensesRatio,
+            Integer debtorDays) {
+
+        Decision cashDecision =
+                trafficLightDecisionService.calculateCashDecision(coverage);
+
+        Decision ratioDecision =
+                trafficLightDecisionService
+                        .calculateRevenueExpensesRatioDecision(
+                                revenueExpensesRatio
+                        );
+
+        if (debtorDays == null) {
+            return trafficLightDecisionService.calculateGlobalDecision(
+                    cashDecision,
+                    ratioDecision,
+                    Decision.VERT,
+                    Decision.VERT
+            );
+        }
+
+        Decision currentAccountDecision =
+                trafficLightDecisionService
+                        .calculateDirectorCurrentAccountDecision(
+                                debtorDays
+                        );
+
         return trafficLightDecisionService.calculateGlobalDecision(
                 cashDecision,
                 ratioDecision,

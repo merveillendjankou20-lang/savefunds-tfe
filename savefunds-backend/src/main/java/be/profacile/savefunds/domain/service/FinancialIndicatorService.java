@@ -35,7 +35,7 @@ public interface FinancialIndicatorService {
      * @param historiqueDebuts Liste des dates de début débiteur (optionnel pour MVP)
      * @return Nombre de jours consécutifs en négatif
      */
-    int calculateDirectorCurrentAccountDebtorDays(BigDecimal directorCurrentAccountBalance, LocalDate dateDebutDebiteur);
+    Integer calculateDirectorCurrentAccountDebtorDays(BigDecimal directorCurrentAccountBalance, LocalDate dateDebutDebiteur);
 
     /**
      * Calcule tous les indicateurs d'une company

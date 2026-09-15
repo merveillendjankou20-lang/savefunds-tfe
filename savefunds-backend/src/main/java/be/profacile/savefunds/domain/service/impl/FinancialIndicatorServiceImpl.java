@@ -80,26 +80,36 @@ public class FinancialIndicatorServiceImpl implements FinancialIndicatorService 
     }
 
     @Override
-    public int calculateDirectorCurrentAccountDebtorDays(BigDecimal directorCurrentAccountBalance, LocalDate dateDebutDebiteur) {
-        log.debug("Calcul durée CC débiteur - Solde: {}, Début: {}", directorCurrentAccountBalance, dateDebutDebiteur);
+    public Integer calculateDirectorCurrentAccountDebtorDays(
+            BigDecimal directorCurrentAccountBalance,
+            LocalDate dateDebutDebiteur) {
 
-        // Si le compte n'est pas débiteur (solde >= 0), retourner 0
-        if (directorCurrentAccountBalance == null || directorCurrentAccountBalance.compareTo(BigDecimal.ZERO) >= 0) {
+        log.debug(
+                "Calcul durée CC débiteur - Solde: {}, Début: {}",
+                directorCurrentAccountBalance,
+                dateDebutDebiteur
+        );
+
+        if (directorCurrentAccountBalance == null) {
+            log.debug("Compte courant dirigeant non disponible");
+            return null;
+        }
+
+        if (directorCurrentAccountBalance.compareTo(BigDecimal.ZERO) >= 0) {
             log.debug("Compte courant non débiteur, retour 0 jours");
             return 0;
         }
 
-        // Si pas de date de début de débit mais solde négatif → ROUGE par défaut
         if (dateDebutDebiteur == null) {
-            log.debug("Solde débiteur mais pas de date de début → 31 jours par défaut");
+            log.debug("Solde débiteur sans date de début : 31 jours par défaut");
             return 31;
         }
 
-        // Calculer le lastNamebre de jours depuis le début du débit
-        long jours = ChronoUnit.DAYS.between(dateDebutDebiteur, LocalDate.now());
+        long jours = ChronoUnit.DAYS.between(
+                dateDebutDebiteur,
+                LocalDate.now()
+        );
 
-        // Assurer que le résultat n'est pas négatif
-        // Minimum 1 jour si solde négatif
         int duree = (int) Math.max(1, jours);
 
         log.debug("Durée compte courant débiteur : {} jours", duree);
@@ -109,11 +119,14 @@ public class FinancialIndicatorServiceImpl implements FinancialIndicatorService 
 
     @Override
     public Map<String, Object> calculateAllFinancialIndicators(Company company) {
-        log.info("Calcul de tous les indicateurs pour company ID: {}", company.getId());
-
         if (company == null) {
-            throw new IllegalArgumentException("L'company ne peut pas être null");
+            throw new IllegalArgumentException("L'entreprise ne peut pas être null");
         }
+
+        log.info(
+                "Calcul de tous les indicateurs pour company ID: {}",
+                company.getId()
+        );
 
         Map<String, Object> indicateurs = new HashMap<>();
 
@@ -141,7 +154,7 @@ public class FinancialIndicatorServiceImpl implements FinancialIndicatorService 
             }
 
             // FinancialIndicator 3 : Durée compte courant débiteur
-            int directorCurrentAccountDebtorDays = calculateDirectorCurrentAccountDebtorDays(
+            Integer directorCurrentAccountDebtorDays = calculateDirectorCurrentAccountDebtorDays(
                     company.getDirectorCurrentAccountBalance(),
                     company.getDirectorCurrentAccountDebitStartDate()
             );

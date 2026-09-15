@@ -215,21 +215,35 @@ public class WithdrawalAnalysisServiceImpl implements WithdrawalAnalysisService 
         Decision decisionRatio = grilleTricoloreService
                 .calculateRevenueExpensesRatioDecision(ratioCACharges);
 
-        Decision directorCurrentAccountDecision = grilleTricoloreService
-                .calculateDirectorCurrentAccountDecision(directorCurrentAccountDebtorDays);
+        Decision directorCurrentAccountDecision = null;
 
-        Decision globalDecision = grilleTricoloreService.calculateGlobalDecision(
-                cashDecision,
-                decisionRatio,
-                directorCurrentAccountDecision,
-                decisionMontant);
+        if (directorCurrentAccountDebtorDays != null) {
+            directorCurrentAccountDecision =
+                    grilleTricoloreService
+                            .calculateDirectorCurrentAccountDecision(
+                                    directorCurrentAccountDebtorDays
+                            );
+        }
 
-        log.info("DÉCISIONS CALCULÉES:");
-        log.info("  • Trésorerie: {}", cashDecision);
-        log.info("  • Ratio CA/Charges: {}", decisionRatio);
-        log.info("  • Compte courant: {}", directorCurrentAccountDecision);
-        log.info("  ► DÉCISION GLOBALE: {}", globalDecision);
-        log.info("───────────────────────────────────────────────────");
+        Decision globalDecision;
+
+        if (directorCurrentAccountDecision == null) {
+            globalDecision =
+                    grilleTricoloreService.calculateGlobalDecision(
+                            cashDecision,
+                            decisionRatio,
+                            Decision.VERT,
+                            decisionMontant
+                    );
+        } else {
+            globalDecision =
+                    grilleTricoloreService.calculateGlobalDecision(
+                            cashDecision,
+                            decisionRatio,
+                            directorCurrentAccountDecision,
+                            decisionMontant
+                    );
+        }
 
         // ===== 5. GÉNÉRATION DES RECOMMANDATIONS =====
 

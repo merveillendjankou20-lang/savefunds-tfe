@@ -9,3 +9,4 @@ tmp/
 tmp_*.mjs
 .idea/
 *.log
+savefunds-backend/.git-backup-backend/

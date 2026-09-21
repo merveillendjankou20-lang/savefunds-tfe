@@ -1279,7 +1279,7 @@
                                         depuis {{ sourceReference(latestSource('ACCOUNTING_CSV')) }}</p>
                                     <div class="source-note">
                                         <span>CA {{ money(latestSource('ACCOUNTING_CSV')?.monthlyRevenue) }}</span>
-                                        <span>Charges {{ money(latestSource('ACCOUNTING_CSV')?.monthlyExpenses) }}</span>
+                                        <span>Charges mensuelles {{ money(latestSource('ACCOUNTING_CSV')?.monthlyExpenses) }}</span>
                                         <span>Tresorerie {{ money(latestSource('ACCOUNTING_CSV')?.cashBalance) }}</span>
                                         <span>CC dirigeant {{ money(latestSource('ACCOUNTING_CSV')?.directorCurrentAccountBalance) }}</span>
                                     </div>

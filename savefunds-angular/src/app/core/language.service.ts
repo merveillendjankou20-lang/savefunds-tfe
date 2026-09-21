@@ -89,7 +89,7 @@ const TRANSLATIONS: Record<SaveFundsLanguage, Record<string, string>> = {
     debtorDays: 'jours debiteur',
     treasury: 'Tresorerie',
     monthlyRevenue: 'CA mensuel',
-    expenses: 'Charges',
+    expenses: 'Charges mensuelles',
     directorCurrentAccount: 'CC dirigeant',
     indicator: 'Indicateur',
     value: 'Valeur',

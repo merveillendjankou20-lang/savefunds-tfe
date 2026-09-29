@@ -13,3 +13,5 @@ savefunds-backend/.git-backup-backend/
 *.zip
 ~$*
 SaveFunds_base_physique.sql
+
+/savefunds-backend/SaveFunds-Analyse-Fonctionnelle-Sprint1.docx
